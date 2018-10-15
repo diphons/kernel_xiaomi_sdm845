@@ -355,6 +355,8 @@ static int __cam_node_handle_release_dev(struct cam_node *node,
 	if (rc)
 		CAM_ERR(CAM_CORE, "destroy device handle is failed node %s",
 			node->name);
+	else
+		ctx->dev_hdl = -1;
 
 	CAM_INFO(CAM_CORE, "[%s] Release ctx_id=%d, refcount=%d",
 		node->name, ctx->ctx_id,
