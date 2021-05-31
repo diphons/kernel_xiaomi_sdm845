@@ -2882,6 +2882,9 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		 * Linux rndis host driver supports MISC_ACTIVE_SYNC and
 		 * WIRELESS_CONTROLLER_REMOTE_NDIS as of now.
 		 */
+		if (cdev->isMSOS)
+			gsi->rndis_id = MISC_RNDIS_OVER_ETHERNET;
+
 		switch (gsi->rndis_id) {
 		default:
 			/* fall throug */
