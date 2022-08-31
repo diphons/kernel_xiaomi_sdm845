@@ -243,6 +243,7 @@ struct dsi_panel {
 
 	struct brightness_alpha_pair *fod_dim_lut;
 	u32 fod_dim_lut_count;
+	int hbm_mode;
 #ifdef CONFIG_DRM_SDE_EXPO
 	bool dimlayer_exposure;
 #endif
@@ -376,6 +377,8 @@ int dsi_panel_update_backlight(struct dsi_panel *panel,
 int dsi_panel_set_fod_hbm(struct dsi_panel *panel, bool status);
 
 u32 dsi_panel_get_fod_dim_alpha(struct dsi_panel *panel);
+
+int dsi_panel_apply_hbm_mode(struct dsi_panel *panel);
 
 int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt);
 int dsi_panel_alloc_cmd_packets(struct dsi_panel_cmd_set *cmd,
