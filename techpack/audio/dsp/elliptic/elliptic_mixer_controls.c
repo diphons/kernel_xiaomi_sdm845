@@ -12,7 +12,7 @@
 
 #include <elliptic/elliptic_mixer_controls.h>
 #include <elliptic/elliptic_data_io.h>
-#include "elliptic_device.h"
+#include <elliptic/elliptic_device.h>
 
 struct elliptic_system_configuration {
 	union {
@@ -49,6 +49,8 @@ struct elliptic_system_configuration_parameter {
 		};
 		int32_t debug_mode;
 		int32_t context;
+		int32_t capture;
+		int32_t input_channels;
 	};
 };
 
@@ -153,6 +155,16 @@ struct elliptic_engine_ml_data {
 static struct elliptic_engine_ml_data
 	elliptic_engine_ml_data_cache
 		= { .reserved = {0} };
+
+struct elliptic_engine_sensor_data {
+	union {
+		uint8_t reserved[ELLIPTIC_SENSOR_DATA_SIZE];
+		uint32_t values32[ELLIPTIC_SENSOR_DATA_SIZE >> 2];
+	};
+};
+
+static struct elliptic_engine_sensor_data
+	elliptic_engine_sensor_data_cache = { .reserved = {0} };
 
 struct elliptic_engine_branch_info {
 	char build_branch[ELLIPTIC_BRANCH_INFO_MAX_SIZE];
@@ -316,12 +328,12 @@ int elliptic_ultrasound_enable_get(struct snd_kcontrol *kcontrol,
 int elliptic_ultrasound_enable_set(struct snd_kcontrol *kcontrol,
 					  struct snd_ctl_elem_value *ucontrol)
 {
-	static bool triggered_engine_info = false;
+	static bool triggered_engine_info;
 	int32_t msg[4] = {0, 0, 0, 0};
 
 	ultrasound_enable_cache = ucontrol->value.integer.value[0];
 
-	if (!triggered_engine_info && ultrasound_enable_cache){
+	if (!triggered_engine_info && ultrasound_enable_cache) {
 		triggered_engine_info = true;
 		elliptic_trigger_version_msg();
 		elliptic_trigger_branch_msg();
@@ -349,20 +361,20 @@ int elliptic_ultrasound_tx_port_set(struct snd_kcontrol *kcontrol,
 {
 	int ret;
 
-	if (ultrasound_tx_port_cache == ucontrol->value.integer.value[0]){
+	if (ultrasound_tx_port_cache == ucontrol->value.integer.value[0]) {
 		EL_PRINT_E("ultrasound_tx_port_set: ignoring duplicate request");
 		return 0;
 	}
 
 	ultrasound_tx_port_cache = ucontrol->value.integer.value[0];
-	if (ultrasound_tx_port_cache) {
+	if (ultrasound_tx_port_cache)
 		ret = elliptic_open_port(ULTRASOUND_TX_PORT_ID);
-	} else {
+	else
 		ret = elliptic_close_port(ULTRASOUND_TX_PORT_ID);
-	}
+
 	EL_PRINT_E("ultrasound_tx_port: enable=%d ret=%d",
 		ultrasound_tx_port_cache, ret);
-	
+
 	return ret;
 }
 
@@ -379,21 +391,21 @@ int elliptic_ultrasound_rx_port_set(struct snd_kcontrol *kcontrol,
 					  struct snd_ctl_elem_value *ucontrol)
 {
 	int ret;
-	
-	if (ultrasound_rx_port_cache == ucontrol->value.integer.value[0]){
+
+	if (ultrasound_rx_port_cache == ucontrol->value.integer.value[0]) {
 		EL_PRINT_E("ultrasound_rx_port_set: ignoring duplicate request");
 		return 0;
 	}
 
 	ultrasound_rx_port_cache = ucontrol->value.integer.value[0];
-	if (ultrasound_rx_port_cache) {
+	if (ultrasound_rx_port_cache)
 		ret = elliptic_open_port(ULTRASOUND_RX_PORT_ID);
-	} else {
+	else
 		ret = elliptic_close_port(ULTRASOUND_RX_PORT_ID);
-	}
+
 	EL_PRINT_E("ultrasound_rx_port: enable=%d ret=%d",
 		ultrasound_tx_port_cache, ret);
-	
+
 	return 0;
 }
 
@@ -544,6 +556,26 @@ int elliptic_ml_data_put(struct snd_kcontrol *kcontrol,
 		ELLIPTIC_ML_DATA_SIZE);
 }
 
+int elliptic_sensor_data_get(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	memcpy(ucontrol->value.bytes.data,
+		&elliptic_engine_sensor_data_cache,
+		ELLIPTIC_SENSOR_DATA_SIZE);
+	return 0;
+}
+
+int elliptic_sensor_data_put(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	memcpy(&elliptic_engine_sensor_data_cache,
+	ucontrol->value.bytes.data, ELLIPTIC_SENSOR_DATA_SIZE);
+
+	return elliptic_data_write(ELLIPTIC_ULTRASOUND_SET_PARAMS,
+		(const char *)&elliptic_engine_sensor_data_cache,
+		ELLIPTIC_SENSOR_DATA_SIZE);
+}
+
 int elliptic_version_data_get(struct snd_kcontrol *kcontrol,
 				  struct snd_ctl_elem_value *ucontrol)
 {
@@ -679,7 +711,7 @@ int elliptic_system_configuration_param_get(
 
 	if (mc->shift >= ELLIPTIC_SYSTEM_CONFIGURATION_CUSTOM_SETTING_0 &&
 		mc->shift <= ELLIPTIC_SYSTEM_CONFIGURATION_CUSTOM_SETTING_15){
-		EL_PRINT_E("get ELLIPTIC_SYSTEM_CONFIGURATION_CUSTOM_SETTING_%02d", 
+		EL_PRINT_E("get ELLIPTIC_SYSTEM_CONFIGURATION_CUSTOM_SETTING_%02d",
 			mc->shift - ELLIPTIC_SYSTEM_CONFIGURATION_CUSTOM_SETTING_0);
 		ucontrol->value.integer.value[0] = 0;
 		return 1;
@@ -726,7 +758,9 @@ int elliptic_system_configuration_param_get(
 		ucontrol->value.integer.value[0] =
 			elliptic_system_configuration_cache.engine_suspend;
 		break;
-	case ELLIPTIC_SYSTEM_CONFIGURATION_INPUT_ENABLED:
+	case ELLIPTIC_SYSTEM_CONFIGURATION_REPORT_NONE:
+		break;	
+    case ELLIPTIC_SYSTEM_CONFIGURATION_INPUT_ENABLED:
 		ucontrol->value.integer.value[0] =
 			elliptic_system_configuration_cache.input_enabled;
 		break;
@@ -748,6 +782,14 @@ int elliptic_system_configuration_param_get(
 	case ELLIPTIC_SYSTEM_CONFIGURATION_CONTEXT:
 		ucontrol->value.integer.value[0] =
 			elliptic_system_configuration_cache.context;
+		break;
+	case ELLIPTIC_SYSTEM_CONFIGURATION_CAPTURE:
+		ucontrol->value.integer.value[0] =
+			elliptic_system_configuration_cache.capture;
+		break;
+	case ELLIPTIC_SYSTEM_CONFIGURATION_INPUT_CHANNELS:
+		ucontrol->value.integer.value[0] =
+			elliptic_system_configuration_cache.input_channels;
 		break;
 
 	default:
@@ -872,6 +914,8 @@ int elliptic_system_configuration_param_put(
 		param.engine_suspend =
 		elliptic_system_configuration_cache.engine_suspend;
 		break;
+	case ELLIPTIC_SYSTEM_CONFIGURATION_REPORT_NONE:
+		break;
 	case ELLIPTIC_SYSTEM_CONFIGURATION_EXTERNAL_EVENT:
 		elliptic_system_configuration_cache.external_event =
 			ucontrol->value.integer.value[0];
@@ -901,6 +945,20 @@ int elliptic_system_configuration_param_put(
 		param.type = ESCPT_CONTEXT;
 		param.context =
 		elliptic_system_configuration_cache.context;
+		break;
+	case ELLIPTIC_SYSTEM_CONFIGURATION_CAPTURE:
+		elliptic_system_configuration_cache.capture =
+			ucontrol->value.integer.value[0];
+		param.type = ESCPT_CAPTURE;
+		param.context =
+		elliptic_system_configuration_cache.capture;
+		break;
+	case ELLIPTIC_SYSTEM_CONFIGURATION_INPUT_CHANNELS:
+		elliptic_system_configuration_cache.input_channels =
+			ucontrol->value.integer.value[0];
+		param.type = ESCPT_INPUT_CHANNELS;
+		param.context =
+		elliptic_system_configuration_cache.input_channels;
 		break;
 
 	default:
@@ -1157,7 +1215,14 @@ static const struct snd_kcontrol_new ultrasound_filter_mixer_controls[] = {
 	0,
 	elliptic_system_configuration_param_get,
 	elliptic_system_configuration_param_put),
-	SOC_SINGLE_EXT("Ultrasound Input",
+	SOC_SINGLE_EXT("Ultrasound ReportNone",
+	ELLIPTIC_SYSTEM_CONFIGURATION,
+	ELLIPTIC_SYSTEM_CONFIGURATION_REPORT_NONE,
+	1,
+	0,
+	elliptic_system_configuration_param_get,
+	elliptic_system_configuration_param_put),	
+    SOC_SINGLE_EXT("Ultrasound Input",
 	ELLIPTIC_SYSTEM_CONFIGURATION,
 	ELLIPTIC_SYSTEM_CONFIGURATION_INPUT_ENABLED,
 	1,
@@ -1205,19 +1270,39 @@ static const struct snd_kcontrol_new ultrasound_filter_mixer_controls[] = {
 	0,
 	elliptic_system_configuration_param_get,
 	elliptic_system_configuration_param_put),
+	SND_SOC_BYTES_EXT("Ultrasound Sensor Data",
+	ELLIPTIC_SENSOR_DATA_SIZE,
+	elliptic_sensor_data_get,
+	elliptic_sensor_data_put),
+
+	SOC_SINGLE_EXT("Ultrasound Capture",
+	ELLIPTIC_SYSTEM_CONFIGURATION,
+	ELLIPTIC_SYSTEM_CONFIGURATION_CAPTURE,
+	256,
+	-1,
+	elliptic_system_configuration_param_get,
+	elliptic_system_configuration_param_put),
+
+	SOC_SINGLE_EXT("Ultrasound Tx Channels",
+	ELLIPTIC_SYSTEM_CONFIGURATION,
+	ELLIPTIC_SYSTEM_CONFIGURATION_INPUT_CHANNELS,
+	16,
+	0,
+	elliptic_system_configuration_param_get,
+	elliptic_system_configuration_param_put),
 
 };
 
 
 
-unsigned int elliptic_add_platform_controls(void *platform)
+unsigned int elliptic_add_component_controls(void *component)
 {
 	const unsigned int num_controls =
 		ARRAY_SIZE(ultrasound_filter_mixer_controls);
 
-	if (platform != NULL) {
-		snd_soc_add_platform_controls(
-			(struct snd_soc_platform *)platform,
+	if (component != NULL) {
+		snd_soc_add_component_controls(
+			(struct snd_soc_component *)component,
 			ultrasound_filter_mixer_controls,
 			num_controls);
 	} else {
@@ -1226,7 +1311,7 @@ unsigned int elliptic_add_platform_controls(void *platform)
 
 	return num_controls;
 }
-
+EXPORT_SYMBOL(elliptic_add_component_controls);
 
 int elliptic_trigger_version_msg(void)
 {

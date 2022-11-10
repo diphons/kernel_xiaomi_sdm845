@@ -18,6 +18,8 @@
 #define ELLIPTIC_CALIBRATION_V2_DATA_SIZE      448
 #define ELLIPTIC_DIAGNOSTICS_DATA_SIZE         448
 #define ELLIPTIC_DIAGNOSTICS_U32_DATA_VALUES   (ELLIPTIC_DIAGNOSTICS_DATA_SIZE>>2)
+#define ELLIPTIC_SENSOR_DATA_SIZE              68
+#define ELLIPTIC_SENSOR_U32_DATA_VALUES   (ELLIPTIC_SENSOR_DATA_SIZE>>2)
 #define ELLIPTIC_VERSION_INFO_SIZE              16
 #define ELLIPTIC_BRANCH_INFO_SIZE               32
 #define ELLIPTIC_BRANCH_INFO_MAX_SIZE          128
@@ -77,6 +79,9 @@
 #define ELLIPTIC_SYSTEM_CONFIGURATION_DEBUG_MODE 28
 #define ELLIPTIC_SYSTEM_CONFIGURATION_NUMBER_OF_RUNS 29
 #define ELLIPTIC_SYSTEM_CONFIGURATION_CONTEXT 30
+#define ELLIPTIC_SYSTEM_CONFIGURATION_CAPTURE 31
+#define ELLIPTIC_SYSTEM_CONFIGURATION_INPUT_CHANNELS 32
+#define ELLIPTIC_SYSTEM_CONFIGURATION_REPORT_NONE 33
 
 #define ELLIPTIC_SYSTEM_CONFIGURATION_MAX_CONTEXT_VALUE 0x7FFFFFFF
 
@@ -97,7 +102,7 @@ struct elliptic_shared_data_block {
 struct elliptic_shared_data_block *elliptic_get_shared_obj(uint32_t
 	object_id);
 
-unsigned int elliptic_add_platform_controls(void *platform);
+extern unsigned int elliptic_add_component_controls(void *component);
 
 void elliptic_set_calibration_data(uint8_t *calib_data, size_t size);
 
@@ -144,6 +149,8 @@ enum elliptic_system_configuration_parameter_type {
 	ESCPT_DEBUG_MODE,
 	ESCPT_NUMBER_OF_RUNS,
 	ESCPT_CONTEXT,
+	ESCPT_CAPTURE,
+	ESCPT_INPUT_CHANNELS,
 };
 
 struct elliptic_system_configuration_parameters_cache {
@@ -168,6 +175,8 @@ struct elliptic_system_configuration_parameters_cache {
 	int32_t debug_mode;
 	int32_t number_of_runs;
 	int32_t context;
+	int32_t capture;
+	int32_t input_channels;
 };
 
 

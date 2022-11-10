@@ -1,6 +1,5 @@
 /**
 * Copyright Elliptic Labs
-* Copyright (C) 2019 XiaoMi, Inc.
 *
 */
 /* #define DEBUG */
@@ -30,23 +29,23 @@
 #include <linux/poll.h>
 #include <linux/kobject.h>
 
-#include "elliptic_sysfs.h"
-#include "elliptic_device.h"
+#include <elliptic/elliptic_sysfs.h>
+#include <elliptic/elliptic_device.h>
 #include <elliptic/elliptic_data_io.h>
 #include <elliptic/elliptic_mixer_controls.h>
 #include <dsp/apr_elliptic.h>
 
 
-// Alternative mechanism to load calibration data.
-// Read calibration data during driver initialization
-// and send message to the DSP
-// 
-// #define ELLIPTIC_LOAD_CALIBRATION_DATA_FROM_FILESYSTEM 1
-//
+/* Alternative mechanism to load calibration data.
+* Read calibration data during driver initialization
+* and send message to the DSP
+*
+* #define ELLIPTIC_LOAD_CALIBRATION_DATA_FROM_FILESYSTEM 1
+*/
 #ifdef ELLIPTIC_LOAD_CALIBRATION_DATA_FROM_FILESYSTEM
-#include <linux/syscalls.h> 
-#include <linux/fcntl.h> 
-#include <asm/uaccess.h> 
+#include <linux/syscalls.h>
+#include <linux/fcntl.h>
+#include <asm/uaccess.h>
 #endif
 
 static struct elliptic_device *elliptic_devices;
@@ -201,7 +200,7 @@ int elliptic_data_initialize(struct elliptic_data
 	atomic_set(&elliptic_data->abort_io, 0);
 	spin_lock_init(&elliptic_data->fifo_isr_spinlock);
 
-    elliptic_data->wakeup_timeout = wakeup_timeout;
+	elliptic_data->wakeup_timeout = wakeup_timeout;
 
 	mutex_init(&elliptic_data->user_buffer_lock);
 	init_waitqueue_head(&elliptic_data->fifo_isr_not_empty);
@@ -393,12 +392,14 @@ int elliptic_data_push(int deviceid,
 	return err;
 }
 
-int elliptic_open_port(int portid){
-    return elliptic_io_open_port(portid);
+int elliptic_open_port(int portid)
+{
+	return elliptic_io_open_port(portid);
 }
 
-int elliptic_close_port(int portid){
-    return elliptic_io_close_port(portid);
+int elliptic_close_port(int portid)
+{
+	return elliptic_io_close_port(portid);
 }
 
 
@@ -558,7 +559,6 @@ static int device_close(struct inode *inode, struct file *filp)
 	elliptic_data_cancel(elliptic_data);
 	up(&device->sem);
 
-	elliptic_trigger_diagnostics_msg();
 	EL_PRINT_I("Closed device elliptic%u", minor);
 	return 0;
 }
@@ -656,32 +656,36 @@ static void elliptic_driver_cleanup(int devices_to_destroy)
 
 #ifdef ELLIPTIC_LOAD_CALIBRATION_DATA_FROM_FILESYSTEM
 
-#define ELLIPTIC_CALIBRATION_MAX_DATA_SIZE ELLIPTIC_CALIBRATION_V2_DATA_SIZE + ELLIPTIC_CALIBRATION_DATA_SIZE
+#define ELLIPTIC_CALIBRATION_MAX_DATA_SIZE (ELLIPTIC_CALIBRATION_V2_DATA_SIZE + ELLIPTIC_CALIBRATION_DATA_SIZE)
 static unsigned char calibration_data[ELLIPTIC_CALIBRATION_MAX_DATA_SIZE];
 static char *calibration_filename = "/persist/audio/elliptic_calibration";
 
 /* function to load the calibration from a file (if possible) */
 static size_t load_calibration_data(char *filename)
-    size_t ret = 0;
-    int fd;
+{
+	size_t ret = 0;
+	int fd;
 
-    mm_segment_t old_fs = get_fs();
-    set_fs(KERNEL_DS);
+	mm_segment_t old_fs = get_fs();
 
-    fd = sys_open(filename, O_RDONLY, 0);
-    if (fd >= 0) {
-        size_t bytes_read = sys_read(fd, calibration_data, ELLIPTIC_CALIBRATION_MAX_DATA_SIZE);
-        if (bytes_read == ELLIPTIC_CALIBRATION_DATA_SIZE ||
-            bytes_read == ELLIPTIC_CALIBRATION_V2_DATA_SIZE) {
-            ret = bytes_read;
-        } 
-        sys_close(fd);
-    }
-    set_fs(old_fs);
-    return ret;
+	set_fs(KERNEL_DS);
+
+	fd = sys_open(filename, O_RDONLY, 0);
+	if (fd >= 0) {
+		size_t bytes_read = sys_read(fd, calibration_data, ELLIPTIC_CALIBRATION_MAX_DATA_SIZE);
+
+		if (bytes_read == ELLIPTIC_CALIBRATION_DATA_SIZE ||
+			bytes_read == ELLIPTIC_CALIBRATION_V2_DATA_SIZE) {
+			ret = bytes_read;
+		}
+		sys_close(fd);
+	}
+	set_fs(old_fs);
+	return ret;
 }
 
-static int32_t elliptic_send_calibration_to_engine(size_t calib_data_size) {
+static int32_t elliptic_send_calibration_to_engine(size_t calib_data_size)
+{
     elliptic_set_calibration_data(calibration_data, calib_data_size);
 	return elliptic_data_write(
 		ELLIPTIC_ULTRASOUND_SET_PARAMS,
@@ -691,7 +695,7 @@ static int32_t elliptic_send_calibration_to_engine(size_t calib_data_size) {
 #endif
 
 
-static int __init elliptic_driver_init(void)
+int __init elliptic_driver_init(void)
 {
 	int err;
 	int i;
@@ -754,22 +758,20 @@ static int __init elliptic_driver_init(void)
 	if (elliptic_userspace_ctrl_driver_init())
 		goto fail;
 
-	wake_source = kmalloc(sizeof(struct wakeup_source), GFP_KERNEL);
+        wake_source = wakeup_source_register(NULL, "elliptic_wake_source");
 
 	if (!wake_source) {
 		EL_PRINT_E("failed to allocate wake source");
 		return -ENOMEM;
 	}
 
-	wakeup_source_init(wake_source, "elliptic_wake_source");
-
 #ifdef ELLIPTIC_LOAD_CALIBRATION_DATA_FROM_FILESYSTEM
-    /* Code to send calibration to engine */
-    {
-        size_t calib_data_size = load_calibration_data(calibration_filename);
-        if (calib_data_size > 0)
-            elliptic_send_calibration_to_engine(calib_data_size);
-    }
+	/* Code to send calibration to engine */
+	{
+		size_t calib_data_size = load_calibration_data(calibration_filename);
+		if (calib_data_size > 0)
+			elliptic_send_calibration_to_engine(calib_data_size);
+	}
 #endif
 	return 0;
 
@@ -778,11 +780,10 @@ fail:
 	return err;
 }
 
-static void elliptic_driver_exit(void)
+void elliptic_driver_exit(void)
 {
 	if (wake_source) {
-		wakeup_source_trash(wake_source);
-		kfree(wake_source);
+		wakeup_source_unregister(wake_source);
 	}
 
 	elliptic_cleanup_sysfs();
@@ -794,6 +795,3 @@ static void elliptic_driver_exit(void)
 MODULE_AUTHOR("Elliptic Labs");
 MODULE_DESCRIPTION("Providing Interface to UPS data");
 MODULE_LICENSE("GPL");
-
-module_init(elliptic_driver_init);
-module_exit(elliptic_driver_exit);

@@ -7,6 +7,8 @@
 #define ELLIPTIC_SYSFS_CALIBRATION_V2_FILENAME "calibration_v2"
 #define ELLIPTIC_SYSFS_STATE_FILENAME "state"
 #define ELLIPTIC_SYSFS_TAG_FILENAME "tag"
+#define ELLIPTIC_SYSFS_OPMODE_FILENAME "opmode"
+#define ELLIPTIC_SYSFS_OPMODE_FLAGS_FILENAME "opmode_flags"
 
 
 int elliptic_initialize_sysfs(void);

@@ -1,6 +1,5 @@
 /**
  * Copyright Elliptic Labs
- * Copyright (C) 2019 XiaoMi, Inc.
  *
  */
 
@@ -46,7 +45,7 @@
 #include <linux/errno.h>
 
 #include <elliptic/elliptic_data_io.h>
-#include "elliptic_device.h"
+#include <elliptic/elliptic_device.h>
 
 #include <dsp/apr_elliptic.h>
 #include <dsp/q6afe-v2.h>
@@ -70,14 +69,16 @@ int elliptic_data_io_cleanup(void)
 {
 	return 0;
 }
-int elliptic_io_open_port(int portid){
+int elliptic_io_open_port(int portid)
+{
 	if (portid == ULTRASOUND_RX_PORT_ID)
 		return afe_start_pseudo_port(AFE_MSM_RX_PSEUDOPORT_ID);
 	else
 		return afe_start_pseudo_port(AFE_MSM_TX_PSEUDOPORT_ID);
 }
 
-int elliptic_io_close_port(int portid){
+int elliptic_io_close_port(int portid)
+{
 	if (portid == ULTRASOUND_RX_PORT_ID)
 		return afe_stop_pseudo_port(AFE_MSM_RX_PSEUDOPORT_ID);
 	else
