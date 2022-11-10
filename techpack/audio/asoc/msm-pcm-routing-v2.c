@@ -5411,11 +5411,13 @@ static int msm_ec_ref_rate_put(struct snd_kcontrol *kcontrol,
 static int get_ec_ref_port_id(int value, int *index)
 {
 	int port_id;
+	bool state = true;
 
 	switch (value) {
 	case 0:
 		*index = 0;
 		port_id = AFE_PORT_INVALID;
+		state = false;
 		break;
 	case 1:
 		*index = 1;
@@ -5585,6 +5587,7 @@ static int get_ec_ref_port_id(int value, int *index)
 		*index = 0; /* NONE */
 		pr_err("%s: Invalid value %d\n", __func__, value);
 		port_id = AFE_PORT_INVALID;
+		state = false;
 		break;
 	}
 
@@ -5724,7 +5727,7 @@ static int msm_routing_ec_ref_rx_put(struct snd_kcontrol *kcontrol,
 
 	if (state || (!state && wakeup_ext_ec_ref == 0 && voip_ext_ec_common_ref == 0)) {
 		pr_info("%s: update state!\n", __func__);
-		adm_ec_ref_rx_id(ec_ref_port_id);
+		adm_ec_ref_rx_id(msm_ec_ref_port_id);
 		mutex_unlock(&routing_lock);
 		snd_soc_dapm_mux_update_power(widget->dapm, kcontrol,
 					msm_route_ec_ref_rx, e, update);

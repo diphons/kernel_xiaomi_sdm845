@@ -2964,8 +2964,8 @@ static int ultrasound_power_get(struct snd_kcontrol *kcontrol,
 static int ultrasound_power_put(struct snd_kcontrol *kcontrol,
                                struct snd_ctl_elem_value *ucontrol)
 {
-       struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-       struct snd_soc_card *card = codec->component.card;
+       struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+       struct snd_soc_card *card = component->card;
        struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
        int ret;
 
@@ -2990,15 +2990,15 @@ static int ultrasound_power_put(struct snd_kcontrol *kcontrol,
 static int usbhs_direction_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = NULL;
+	struct snd_soc_component *component = NULL;
 	struct snd_soc_card *card = NULL;
 	struct msm_asoc_mach_data *pdata = NULL;
 
 	ucontrol->value.integer.value[0] = 0;
 
-	codec = snd_soc_kcontrol_codec(kcontrol);
-	if (codec) {
-		card = codec->component.card;
+	component = snd_soc_kcontrol_component(kcontrol);
+	if (component) {
+		card = component->card;
 		if (card) {
 			pdata = snd_soc_card_get_drvdata(card);
 			if (pdata){
@@ -3958,7 +3958,7 @@ static bool msm_usbc_swap_gnd_mic(struct snd_soc_component *component, bool acti
 			value = gpio_get_value_cansleep(pdata->usbc_en2_gpio);
 			gpio_set_value_cansleep(pdata->usbc_en2_gpio, !value);
 		}
-		tavil_mb_pull_down(codec, false, oldv);
+		tavil_mb_pull_down(component, false, oldv);
 		pr_info("%s: swap select switch %d to %d\n", __func__,
 			value, !value);
 		ret = true;
