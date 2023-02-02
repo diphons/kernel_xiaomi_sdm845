@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  */
 
 #include <linux/list.h>
@@ -54,6 +55,14 @@ static const struct of_device_id dsi_display_dt_match[] = {
 struct dsi_display *primary_display;
 
 static unsigned int cur_refresh_rate = 60;
+
+const char *dsi_get_display_name(void)
+{
+	if (primary_display)
+		return primary_display->name;
+	else
+		return NULL;
+}
 
 static void dsi_display_mask_ctrl_error_interrupts(struct dsi_display *display,
 			u32 mask, bool enable)
@@ -238,10 +247,22 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 		       dsi_display->name, rc);
 		goto error;
 	}
-
-	rc = dsi_panel_set_backlight(panel, (u32)bl_temp);
-	if (rc)
-		DSI_ERR("unable to set backlight\n");
+/*
+	if (drm_dev && drm_dev->doze_state == DRM_BLANK_LP1) {
+		rc = dsi_panel_set_doze_backlight(display, (u32)bl_temp);
+		if (rc)
+			DSI_ERR("unable to set doze backlight\n");
+		rc = dsi_panel_enable_doze_backlight(panel, (u32)bl_temp);
+		if (rc)
+			DSI_ERR("unable to enable doze backlight\n");
+	} else if (drm_dev && drm_dev->doze_state == DRM_BLANK_LP2) {
+		DSI_ERR("unable to set doze backlight in LP2 state:%u\n", (u32)bl_temp);
+	} else {
+		drm_dev->doze_brightness = DOZE_BRIGHTNESS_INVALID;*/
+		rc = dsi_panel_set_backlight(panel, (u32)bl_temp);
+		if (rc)
+			DSI_ERR("unable to set backlight\n");
+//	}
 
 	rc = dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 			DSI_CORE_CLK, DSI_CLK_OFF);
@@ -252,7 +273,6 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 	}
 
 error:
-	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 
@@ -1392,6 +1412,7 @@ int dsi_display_set_power(struct drm_connector *connector,
 {
 	struct mi_drm_notifier g_notify_data;
 	struct dsi_display *display = disp;
+	struct drm_device *dev = NULL;
 	int rc = 0;
 
 	if (!display || !display->panel) {
@@ -1423,6 +1444,7 @@ int dsi_display_set_power(struct drm_connector *connector,
 	default:
 		return rc;
 	}
+	dev->pre_state = power_mode;
 
 	DSI_DEBUG("Power mode transition from %d to %d %s",
 			display->panel->power_mode, power_mode,
@@ -5380,7 +5402,8 @@ int dsi_display_cont_splash_config(void *dsi_display)
 				display->is_cont_splash_enabled);
 
 	/* Set up ctrl isr before enabling core clk */
-	dsi_display_ctrl_isr_configure(display, true);
+	if (strcmp(display->name, "dsi_sim_vid_display"))
+		dsi_display_ctrl_isr_configure(display, true);
 
 	/* Vote for Core clk and link clk. Votes on ctrl and phy
 	 * regulator are inplicit from  pre clk on callback
@@ -8131,6 +8154,8 @@ int dsi_display_enable(struct dsi_display *display)
 			       display->name, rc);
 			goto error;
 		}
+
+		display->panel->dsi_panel_off_mode = false;
 	}
 
 	/* Block sending pps command if modeset is due to fps difference */
@@ -8349,6 +8374,8 @@ int dsi_display_unprepare(struct dsi_display *display)
 		DSI_ERR("Invalid params\n");
 		return -EINVAL;
 	}
+
+	cancel_delayed_work_sync(&display->panel->cmds_work);
 
 	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
 	mutex_lock(&display->display_lock);

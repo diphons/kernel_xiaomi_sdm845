@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
@@ -22,10 +23,18 @@
 
 #define SDE_DBG_BASE_MAX		10
 
+#ifdef CONFIG_DRM_SDE_XLOG_DEBUG
 #define DEFAULT_PANIC		1
 #define DEFAULT_REGDUMP		SDE_DBG_DUMP_IN_MEM
 #define DEFAULT_DBGBUS_SDE	SDE_DBG_DUMP_IN_MEM
 #define DEFAULT_DBGBUS_VBIFRT	SDE_DBG_DUMP_IN_MEM
+#else
+#define DEFAULT_PANIC		0
+#define DEFAULT_REGDUMP		SDE_DBG_DUMP_IN_LOG
+#define DEFAULT_DBGBUS_SDE	SDE_DBG_DUMP_IN_LOG
+#define DEFAULT_DBGBUS_VBIFRT	SDE_DBG_DUMP_IN_LOG
+#endif
+
 #define DEFAULT_BASE_REG_CNT	0x100
 #define GROUP_BYTES		4
 #define ROW_BYTES		16
