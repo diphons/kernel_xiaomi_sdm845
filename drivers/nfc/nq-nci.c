@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  */
 
 #include <linux/kernel.h>
@@ -24,6 +25,8 @@
 #include <linux/jiffies.h>
 #include <linux/regulator/consumer.h>
 
+#undef CLK_SRC_PLL
+
 struct nqx_platform_data {
 	unsigned int irq_gpio;
 	unsigned int en_gpio;
@@ -32,7 +35,9 @@ struct nqx_platform_data {
 	unsigned int ese_gpio;
 	int vdd_levels[2];
 	int max_current;
+#ifdef CLK_SRC_PLL
 	const char *clk_src_name;
+#endif
 	/* NFC_CLK pin voting state */
 	bool clk_pin_voting;
 };
@@ -79,9 +84,11 @@ struct nqx_dev {
 	unsigned int		dev_ref_count;
 	/* Initial CORE RESET notification */
 	unsigned int		core_reset_ntf;
+#ifdef CLK_SRC_PLL
 	/* CLK control */
 	bool			clk_run;
 	struct	clk		*s_clk;
+#endif
 	/* read buffer*/
 	size_t kbuflen;
 	u8 *kbuf;
@@ -91,10 +98,12 @@ struct nqx_dev {
 
 static int nfcc_reboot(struct notifier_block *notifier, unsigned long val,
 			void *v);
+#ifdef CLK_SRC_PLL
 /*clock enable function*/
 static int nqx_clock_select(struct nqx_dev *nqx_dev);
 /*clock disable function*/
 static int nqx_clock_deselect(struct nqx_dev *nqx_dev);
+#endif
 static int nqx_standby_write(struct nqx_dev *nqx_dev,
 				const unsigned char *buf, size_t len);
 
@@ -844,10 +853,13 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 			usleep_range(10000, 10100);
 		}
 		if (nqx_dev->pdata->clk_pin_voting) {
+#ifdef CLK_SRC_PLL
 			r = nqx_clock_deselect(nqx_dev);
 			if (r < 0)
 				dev_err(&nqx_dev->client->dev, "unable to disable clock\n");
+#endif
 		}
+
 		nqx_dev->nfc_ven_enabled = false;
 	} else if (arg == NFC_POWER_ON) {
 		nqx_enable_irq(nqx_dev);
@@ -861,9 +873,11 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 		gpio_set_value(nqx_dev->en_gpio, 1);
 		usleep_range(10000, 10100);
 		if (nqx_dev->pdata->clk_pin_voting) {
+#ifdef CLK_SRC_PLL
 			r = nqx_clock_select(nqx_dev);
 			if (r < 0)
 				dev_err(&nqx_dev->client->dev, "unable to enable clock\n");
+#endif
 		}
 		nqx_dev->nfc_ven_enabled = true;
 	} else if (arg == NFC_FW_DWL_VEN_TOGGLE) {
@@ -1179,6 +1193,12 @@ err_nfcc_hw_info:
 	return ret;
 }
 
+/**
+ * Do not need check availability of NFCC.
+ * This function will block NFCC to enter FW download mode.
+ */
+
+#if 0
 /* Check for availability of NQ_ NFC controller hardware */
 static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 {
@@ -1373,7 +1393,9 @@ done:
 
 	return ret;
 }
+#endif
 
+#ifdef CLK_SRC_PLL
 /*
  * Routine to enable clock.
  * this routine can be extended to select from multiple
@@ -1419,6 +1441,7 @@ static int nqx_clock_deselect(struct nqx_dev *nqx_dev)
 	}
 	return r;
 }
+#endif
 
 static int nfc_parse_dt(struct device *dev, struct nqx_platform_data *pdata)
 {
@@ -1448,10 +1471,12 @@ static int nfc_parse_dt(struct device *dev, struct nqx_platform_data *pdata)
 		pdata->ese_gpio = -EINVAL;
 	}
 
+#ifdef CLK_SRC_PLL
 	if (of_property_read_string(np, "qcom,clk-src", &pdata->clk_src_name))
 		pdata->clk_pin_voting = false;
 	else
 		pdata->clk_pin_voting = true;
+#endif
 
 	// optional property
 	r = of_property_read_u32_array(np, NFC_LDO_VOL_DT_NAME,
@@ -1726,6 +1751,8 @@ static int nqx_probe(struct i2c_client *client,
 		goto err_ldo_config_failed;
 	}
 
+	/* Do not perform nfcc_hw_check, make sure that nfcc is present */
+#if 0
 	/*
 	 * To be efficient we need to test whether nfcc hardware is physically
 	 * present before attempting further hardware initialisation.
@@ -1738,6 +1765,7 @@ static int nqx_probe(struct i2c_client *client,
 		/* We don't think there is hardware switch NFC OFF */
 		goto err_request_hw_check_failed;
 	}
+#endif
 
 	/* Register reboot notifier here */
 	r = register_reboot_notifier(&nfcc_notifier);
@@ -1753,12 +1781,14 @@ static int nqx_probe(struct i2c_client *client,
 	}
 
 #ifdef NFC_KERNEL_BU
+#ifdef CLK_SRC_PLL
 	r = nqx_clock_select(nqx_dev);
 	if (r < 0) {
 		dev_err(&client->dev,
 			"%s: nqx_clock_select failed\n", __func__);
 		goto err_clock_en_failed;
 	}
+#endif
 	gpio_set_value(platform_data->en_gpio, 1);
 #endif
 	device_init_wakeup(&client->dev, true);
