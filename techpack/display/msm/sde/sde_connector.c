@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
@@ -32,6 +33,8 @@
 static u32 dither_matrix[DITHER_MATRIX_SZ] = {
 	15, 7, 13, 5, 3, 11, 1, 9, 12, 4, 14, 6, 0, 8, 2, 10
 };
+
+struct sde_connector *primary_c_conn;
 
 static const struct drm_prop_enum_list e_topology_name[] = {
 	{SDE_RM_TOPOLOGY_NONE,	"sde_none"},
@@ -88,12 +91,20 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 	if (brightness > display->panel->bl_config.bl_max_level)
 		brightness = display->panel->bl_config.bl_max_level;
 
-	/* map UI brightness into driver backlight level with rounding */
-	bl_lvl = mult_frac(brightness, display->panel->bl_config.bl_max_level,
-			display->panel->bl_config.brightness_max_level);
+	if (!display->panel->bl_config.bl_remap_flag) {
+		/* map UI brightness into driver backlight level with rounding */
+		bl_lvl = mult_frac(brightness, display->panel->bl_config.bl_max_level,
+				display->panel->bl_config.brightness_max_level);
+	} else {
+		bl_lvl = brightness;
+	}
 
 	if (!bl_lvl && brightness)
 		bl_lvl = 1;
+
+	if (bl_lvl && bl_lvl < display->panel->bl_config.bl_min_level
+		&& !display->panel->bl_config.bl_remap_flag)
+		bl_lvl = display->panel->bl_config.bl_min_level;
 
 	if (!c_conn->allow_bl_update) {
 		c_conn->unset_bl_level = bl_lvl;
@@ -909,12 +920,17 @@ void sde_connector_helper_bridge_enable(struct drm_connector *connector)
 				MSM_ENC_TX_COMPLETE);
 	c_conn->allow_bl_update = true;
 
-	if (c_conn->bl_device) {
+	/*after the first frame,need to delay some time for visionox*/
+	if (display->panel->bl_config.bl_update_delay)
+		msleep(display->panel->bl_config.bl_update_delay);
+
+	if (!display->is_first_boot && c_conn->bl_device) {
 		c_conn->bl_device->props.power = FB_BLANK_UNBLANK;
 		c_conn->bl_device->props.state &= ~BL_CORE_FBBLANK;
 		backlight_update_status(c_conn->bl_device);
 	}
 	c_conn->panel_dead = false;
+	display->is_first_boot = false;
 }
 
 int sde_connector_clk_ctrl(struct drm_connector *connector, bool enable)
@@ -1379,6 +1395,10 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 	/* connector-specific property handling */
 	idx = msm_property_index(&c_conn->property_info, property);
 	switch (idx) {
+	case CONNECTOR_PROP_LP:
+		if (connector->dev)
+			connector->dev->doze_state = val;
+		break;
 	case CONNECTOR_PROP_OUT_FB:
 		/* clear old fb, if present */
 		if (c_state->out_fb)
@@ -2153,6 +2173,11 @@ static void _sde_connector_report_panel_dead(struct sde_connector *conn,
 	if (!conn)
 		return;
 
+	if (conn->panel_dead_skip) {
+		pr_err("skip because of panel_dead_skip true\n");
+		return;
+	}
+
 	/* Panel dead notification can come:
 	 * 1) ESD thread
 	 * 2) Commit thread (if TE stops coming)
@@ -2295,6 +2320,55 @@ static const struct drm_connector_helper_funcs sde_connector_helper_ops_v2 = {
 	.atomic_best_encoder = sde_connector_atomic_best_encoder,
 	.atomic_check = sde_connector_atomic_check,
 };
+
+void set_skip_panel_dead(bool on)
+{
+	struct sde_connector *c_conn = primary_c_conn;
+	if (!c_conn) {
+		pr_err("%s: not able to get connector object\n", __func__);
+		return;
+	}
+
+	c_conn->panel_dead_skip = !!on;
+
+	return;
+}
+
+void report_esd_panel_dead(void)
+{
+	struct sde_connector *c_conn = primary_c_conn;
+	struct drm_event event;
+	bool panel_on = true;
+
+	if (!c_conn) {
+		pr_err("%s: not able to get connector object\n", __func__);
+		return;
+	}
+
+	if (c_conn->panel_dead_skip) {
+		pr_err("skip because of panel_dead_skip true\n");
+		return;
+	}
+
+	if (c_conn->connector_type == DRM_MODE_CONNECTOR_DSI) {
+		struct dsi_display *dsi_display = (struct dsi_display *)(c_conn->display);
+		if (dsi_display && dsi_display->panel) {
+			panel_on = dsi_display->panel->panel_initialized;
+		}
+	}
+
+	pr_err("esd check tddi report PANEL_DEAD conn_id: %d enc_id: %d, panel_status[%d]\n",
+		c_conn->base.base.id, c_conn->encoder->base.id, panel_on);
+
+	if (panel_on) {
+		c_conn->panel_dead = true;
+		event.type = DRM_EVENT_PANEL_DEAD;
+		event.length = sizeof(bool);
+		msm_mode_object_event_notify(&c_conn->base.base,
+			c_conn->base.dev, &event, (u8 *)&c_conn->panel_dead);
+	}
+	return;
+}
 
 static int sde_connector_populate_mode_info(struct drm_connector *conn,
 	struct sde_kms_info *info)

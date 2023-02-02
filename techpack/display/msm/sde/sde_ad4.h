@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  */
 #ifndef _SDE_AD4_H_
 #define _SDE_AD4_H_
@@ -46,6 +47,7 @@ enum ad_property {
 	AD_IPC_SUSPEND,
 	AD_IPC_RESUME,
 	AD_IPC_RESET,
+	AD_RESUME,
 	AD_PROPMAX,
 };
 
