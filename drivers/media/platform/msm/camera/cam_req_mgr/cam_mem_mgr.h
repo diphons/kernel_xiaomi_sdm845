@@ -1,13 +1,6 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_MEM_MGR_H_
@@ -19,6 +12,12 @@
 #include "cam_mem_mgr_api.h"
 
 #define CAM_MEM_BUFQ_MAX 1024
+
+/* Enum for possible mem mgr states */
+enum cam_mem_mgr_state {
+	CAM_MEM_MGR_UNINITIALIZED,
+	CAM_MEM_MGR_INITIALIZED,
+};
 
 /*Enum for possible SMMU operations */
 enum cam_smmu_mapping_client {
@@ -54,7 +53,7 @@ struct cam_mem_buf_queue {
 	size_t len;
 	uint32_t flags;
 	uint64_t vaddr;
-	uint64_t kmdvaddr;
+	uintptr_t kmdvaddr;
 	bool active;
 	bool is_imported;
 };
@@ -66,12 +65,16 @@ struct cam_mem_buf_queue {
  * @bitmap: bitmap of the mem mgr utility
  * @bits: max bits of the utility
  * @bufq: array of buffers
+ * @dentry: Debugfs entry
+ * @alloc_profile_enable: Whether to enable alloc profiling
  */
 struct cam_mem_table {
 	struct mutex m_lock;
 	void *bitmap;
 	size_t bits;
 	struct cam_mem_buf_queue bufq[CAM_MEM_BUFQ_MAX];
+	struct dentry *dentry;
+	bool alloc_profile_enable;
 };
 
 /**
