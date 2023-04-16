@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  */
 #ifndef __WCD934X_MBHC_H__
 #define __WCD934X_MBHC_H__
@@ -39,6 +40,10 @@ extern int tavil_mbhc_post_ssr_init(struct wcd934x_mbhc *mbhc,
 				    struct snd_soc_component *component);
 extern int tavil_mbhc_get_impedance(struct wcd934x_mbhc *wcd934x_mbhc,
 				    uint32_t *zl, uint32_t *zr);
+
+extern int tavil_mb_pull_down(struct snd_soc_codec *codec, bool active,
+			int value);
+
 #else
 static inline int tavil_mbhc_init(struct wcd934x_mbhc **mbhc,
 				  struct snd_soc_component *component,
@@ -72,6 +77,14 @@ static inline int tavil_mbhc_get_impedance(struct wcd934x_mbhc *wcd934x_mbhc,
 		*zr = 0;
 	return -EINVAL;
 }
+
+
+static inline int tavil_mb_pull_down(struct snd_soc_codec *codec, bool active,
+			int value)
+{
+	return 0;
+}
+
 #endif
 
 #endif /* __WCD934X_MBHC_H__ */

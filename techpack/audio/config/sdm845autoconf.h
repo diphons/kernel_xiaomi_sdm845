@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  */
 
 #define CONFIG_PINCTRL_WCD 1
@@ -39,3 +40,5 @@
 #define CONFIG_WCD_DSP_GLINK 1
 #define CONFIG_MSM_AVTIMER 1
 #define CONFIG_SND_SOC_MSM_HDMI_CODEC_RX 1
+#define CONFIG_SND_SOC_TAS2557 1
+#define CONFIG_SND_SOC_TAS2559 1
