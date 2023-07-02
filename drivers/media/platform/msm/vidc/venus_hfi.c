@@ -1065,7 +1065,7 @@ no_data_count:
 				freq = __calc_bw(bus, &device->bus_vote);
 			} else {
 				freq = bus->range[1];
-				dprintk(VIDC_ERR, "%s %s perf Vote %u\n",
+				dprintk(VIDC_DBG, "%s %s perf Vote %u\n",
 						__func__, bus->name,
 						bus->range[1]);
 			}
