@@ -227,6 +227,11 @@ struct drm_device {
 	 * Set by drm_fb_helper_init() and cleared by drm_fb_helper_fini().
 	 */
 	struct drm_fb_helper *fb_helper;
+
+	int doze_state;
+	bool fp_quickon;
+	int pre_state;
+	int doze_brightness;
 };
 
 #endif

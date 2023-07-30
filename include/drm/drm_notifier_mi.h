@@ -45,6 +45,7 @@ enum {
 
 struct mi_drm_notifier {
 	enum msm_drm_display_id id;
+	bool is_primary;
 	void *data;
 };
 
