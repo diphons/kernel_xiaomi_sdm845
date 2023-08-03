@@ -12,6 +12,8 @@
 
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/refcount.h>
+
 #include "cam_context.h"
 #include "cam_debug_util.h"
 #include "cam_node.h"
@@ -480,7 +482,7 @@ void cam_context_putref(struct cam_context *ctx)
 	kref_put(&ctx->refcount, cam_node_put_ctxt_to_free_list);
 	CAM_DBG(CAM_CORE,
 		"ctx device hdl %ld, ref count %d, dev_name %s",
-		ctx->dev_hdl, atomic_read(&(ctx->refcount.refcount)),
+		ctx->dev_hdl, refcount_read(&(ctx->refcount.refcount)),
 		ctx->dev_name);
 }
 
@@ -488,10 +490,10 @@ void cam_context_getref(struct cam_context *ctx)
 {
 	if (kref_get_unless_zero(&ctx->refcount) == 0) {
 		/* should never happen */
-		WARN(1, "cam_context_getref fail\n");
+		WARN(1, "%s fail\n", __func__);
 	}
 	CAM_DBG(CAM_CORE,
 		"ctx device hdl %ld, ref count %d, dev_name %s",
-		ctx->dev_hdl, atomic_read(&(ctx->refcount.refcount)),
+		ctx->dev_hdl, refcount_read(&(ctx->refcount.refcount)),
 		ctx->dev_name);
 }
