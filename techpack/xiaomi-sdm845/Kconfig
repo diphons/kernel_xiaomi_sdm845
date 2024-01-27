@@ -1,0 +1,21 @@
+menu "Xiaomi platform"
+
+config MACH_XIAOMI
+	bool "Support for Xiaomi platform"
+	help
+	  Say Y here to enable support for Xiaomi platform.
+
+if MACH_XIAOMI
+
+source "techpack/xiaomi-sdm845/mach/Kconfig"
+source "techpack/xiaomi-sdm845/fingerprint/Kconfig"
+source "techpack/xiaomi-sdm845/gps/Kconfig"
+source "techpack/xiaomi-sdm845/halls/Kconfig"
+source "techpack/xiaomi-sdm845/leds/Kconfig"
+source "techpack/xiaomi-sdm845/power_supply/Kconfig"
+source "techpack/xiaomi-sdm845/regulator/Kconfig"
+source "techpack/xiaomi-sdm845/touchscreen/Kconfig"
+
+endif # MACH_XIAOMI
+
+endmenu

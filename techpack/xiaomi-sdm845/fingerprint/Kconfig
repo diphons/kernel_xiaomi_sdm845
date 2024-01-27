@@ -1,0 +1,7 @@
+menu "Fingerprint"
+
+source "techpack/xiaomi-sdm845/fingerprint/goodix_ta/Kconfig"
+source "techpack/xiaomi-sdm845/fingerprint/fpc_tee/Kconfig"
+source "techpack/xiaomi-sdm845/fingerprint/synaptics/Kconfig"
+
+endmenu

@@ -1,0 +1,2 @@
+obj-$(CONFIG_INPUT_PRESS_NDT_F60) += ndt_f60.o
+obj-$(CONFIG_INPUT_PRESS_NDT_M65) += ndt_m65.o

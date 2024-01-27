@@ -1,0 +1,1 @@
+obj-$(CONFIG_REGULATOR_RTMV20)	+= rtmv20.o
