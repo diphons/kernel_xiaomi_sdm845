@@ -72,7 +72,7 @@ static struct dsi_display_mode_priv_info default_priv_info = {
 struct dsi_bridge *gbridge;
 static struct delayed_work prim_panel_work;
 static atomic_t prim_panel_is_on;
-static struct wakeup_source prim_panel_wakelock;
+static struct wakeup_source *prim_panel_wakelock;
 
 struct drm_notify_data g_notify_data;
 
@@ -245,7 +245,7 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 
 	if (c_bridge->display->is_prim_display && atomic_read(&prim_panel_is_on)) {
 		cancel_delayed_work_sync(&prim_panel_work);
-		__pm_relax(&prim_panel_wakelock);
+		__pm_relax(prim_panel_wakelock);
 		if (dev->fp_quickon &&
 			(dev->doze_state == DRM_BLANK_LP1 || dev->doze_state == DRM_BLANK_LP2)) {
 			event = DRM_BLANK_POWERDOWN;
@@ -355,13 +355,13 @@ int dsi_bridge_interface_enable(int timeout)
 
 	gbridge->base.dev->fp_quickon = true;
 
-	__pm_stay_awake(&prim_panel_wakelock);
+	__pm_stay_awake(prim_panel_wakelock);
 	dsi_bridge_pre_enable(&gbridge->base);
 
 	if (timeout > 0)
 		schedule_delayed_work(&prim_panel_work, msecs_to_jiffies(timeout));
 	else
-		__pm_relax(&prim_panel_wakelock);
+		__pm_relax(prim_panel_wakelock);
 
 	mutex_unlock(&gbridge->base.lock);
 	return ret;
@@ -565,7 +565,7 @@ static void prim_panel_off_delayed_work(struct work_struct *work)
 	mutex_lock(&gbridge->base.lock);
 	if (atomic_read(&prim_panel_is_on)) {
 		dsi_bridge_post_disable(&gbridge->base);
-		__pm_relax(&prim_panel_wakelock);
+		__pm_relax(prim_panel_wakelock);
 		gbridge->base.dev->fp_quickon = false;
 		mutex_unlock(&gbridge->base.lock);
 		return;
@@ -1327,7 +1327,8 @@ struct dsi_bridge *dsi_drm_bridge_init(struct dsi_display *display,
 	if (display->is_prim_display) {
 		gbridge = bridge;
 		atomic_set(&resume_pending, 0);
-		wakeup_source_init(&prim_panel_wakelock, "prim_panel_wakelock");
+		prim_panel_wakelock = wakeup_source_create("prim_panel_wakelock");
+		wakeup_source_add(prim_panel_wakelock);
 		atomic_set(&prim_panel_is_on, false);
 		init_waitqueue_head(&resume_wait_q);
 		INIT_DELAYED_WORK(&prim_panel_work, prim_panel_off_delayed_work);
@@ -1348,7 +1349,8 @@ void dsi_drm_bridge_cleanup(struct dsi_bridge *bridge)
 	if (bridge == gbridge) {
 		atomic_set(&prim_panel_is_on, false);
 		cancel_delayed_work_sync(&prim_panel_work);
-		wakeup_source_trash(&prim_panel_wakelock);
+		wakeup_source_remove(prim_panel_wakelock);
+		wakeup_source_destroy(prim_panel_wakelock);
 	}
 
 	kfree(bridge);

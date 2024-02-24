@@ -11,6 +11,7 @@
 #include <linux/of_gpio.h>
 #include <linux/pwm.h>
 #include <video/mipi_display.h>
+#include <linux/leds.h>
 
 #include "dsi_panel.h"
 #include "dsi_display.h"
@@ -394,7 +395,7 @@ static int dsi_panel_gpio_release(struct dsi_panel *panel)
  void drm_dsi_ulps_enable(bool enable)
 {
 	if (g_panel) {
-		g_panel->ulps_enabled = enable;
+		g_panel->ulps_feature_enabled = enable;
 		g_panel->ulps_suspend_enabled = enable;
 	}
 }
@@ -2707,8 +2708,9 @@ static int dsi_panel_parse_power_cfg(struct dsi_panel *panel)
 {
 	int rc = 0;
 	char *supply_name;
+	struct dsi_parser_utils *utils = &panel->utils;
 
-	panel->lp11_init = of_property_read_bool(of_node,
+	panel->lp11_init = utils->read_bool(utils->data,
 				"qcom,mdss-dsi-lp11-init");
 	DSI_DEBUG("%s: lp11_init = %d\n", __func__, panel->lp11_init);
 
@@ -2880,7 +2882,7 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 	panel->bl_config.bl_scale = MAX_BL_SCALE_LEVEL;
 	panel->bl_config.bl_scale_sv = MAX_SV_BL_SCALE_LEVEL;
 
-	panel->bl_config.dcs_type_ss = of_property_read_bool(of_node,
+	panel->bl_config.dcs_type_ss = utils->read_bool(utils->data,
 						"qcom,mdss-dsi-bl-dcs-type-ss");
 
 	rc = utils->read_u32(utils->data, "qcom,bl-update-delay", &val);
@@ -2910,7 +2912,7 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 		panel->bl_config.bl_max_level = val;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-bl-typical-level", &val);
+	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-bl-typical-level", &val);
 	if (rc) {
 		DSI_DEBUG("[%s] bl-typical-level unspecified, defaulting to bl-min-level\n",
 			 panel->name);
@@ -2919,11 +2921,11 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 		panel->bl_config.bl_typical_level = val;
 	}
 
-	panel->bl_config.bl_remap_flag = of_property_read_bool(of_node,
+	panel->bl_config.bl_remap_flag = utils->read_bool(utils->data,
 						"qcom,mdss-brightness-remap");
 
-	panel->bl_config.doze_brightness_varible_flag = of_property_read_bool(of_node,
-						"qcom,mdss-doze-brightness-variable");
+	panel->bl_config.doze_brightness_varible_flag = utils->read_u32(utils->data,
+						"qcom,mdss-doze-brightness-variable", &val);
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-brightness-max-level",
 		&val);
@@ -4210,7 +4212,7 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 
 	rc = dsi_panel_parse_mi_config(panel, of_node);
 	if (rc)
-		dsi_ERR("failed to parse mi config, rc=%d\n", rc);
+		DSI_ERR("failed to parse mi config, rc=%d\n", rc);
 
 	panel->power_mode = SDE_MODE_DPMS_OFF;
 	drm_panel_init(&panel->drm_panel);
