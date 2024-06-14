@@ -205,7 +205,6 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 {
 	struct dsi_display *dsi_display = display;
 	struct dsi_panel *panel;
-	struct drm_device *drm_dev;
 	u32 bl_scale, bl_scale_sv;
 	u64 bl_temp;
 	int rc = 0;
@@ -214,12 +213,11 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 		return -EINVAL;
 
 	panel = dsi_display->panel;
-	drm_dev = dsi_display->drm_dev;
 
+	mutex_lock(&panel->panel_lock);
 	if (!dsi_panel_initialized(panel)) {
-		pr_info("[%s] set backlight before panel initialized, caching value: %d\n",
-		dsi_display->name, bl_lvl);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto error;
 	}
 
 	panel->bl_config.bl_level = bl_lvl;
@@ -229,7 +227,7 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 	bl_temp = bl_lvl * bl_scale / min(max(0, backlight_scale), 2047);
 
 	bl_scale_sv = panel->bl_config.bl_scale_sv;
-	//bl_temp = (u32)bl_temp * bl_scale_sv / MAX_SV_BL_SCALE_LEVEL;
+	bl_temp = (u32)bl_temp * bl_scale_sv / MAX_SV_BL_SCALE_LEVEL;
 
 	DSI_DEBUG("bl_scale = %u, bl_scale_sv = %u, bl_lvl = %u\n",
 		bl_scale, bl_scale_sv, (u32)bl_temp);
@@ -254,6 +252,7 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 	}
 
 error:
+	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 
@@ -1393,7 +1392,6 @@ int dsi_display_set_power(struct drm_connector *connector,
 {
 	struct mi_drm_notifier g_notify_data;
 	struct dsi_display *display = disp;
-	struct drm_device *dev = NULL;
 	int rc = 0;
 
 	if (!display || !display->panel) {
@@ -1425,7 +1423,6 @@ int dsi_display_set_power(struct drm_connector *connector,
 	default:
 		return rc;
 	}
-	dev->pre_state = power_mode;
 
 	DSI_DEBUG("Power mode transition from %d to %d %s",
 			display->panel->power_mode, power_mode,
@@ -5383,8 +5380,7 @@ int dsi_display_cont_splash_config(void *dsi_display)
 				display->is_cont_splash_enabled);
 
 	/* Set up ctrl isr before enabling core clk */
-	if (strcmp(display->name, "dsi_sim_vid_display"))
-		dsi_display_ctrl_isr_configure(display, true);
+	dsi_display_ctrl_isr_configure(display, true);
 
 	/* Vote for Core clk and link clk. Votes on ctrl and phy
 	 * regulator are inplicit from  pre clk on callback
@@ -8135,8 +8131,6 @@ int dsi_display_enable(struct dsi_display *display)
 			       display->name, rc);
 			goto error;
 		}
-
-		display->panel->dsi_panel_off_mode = false;
 	}
 
 	/* Block sending pps command if modeset is due to fps difference */
@@ -8355,8 +8349,6 @@ int dsi_display_unprepare(struct dsi_display *display)
 		DSI_ERR("Invalid params\n");
 		return -EINVAL;
 	}
-
-	cancel_delayed_work_sync(&display->panel->cmds_work);
 
 	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
 	mutex_lock(&display->display_lock);
