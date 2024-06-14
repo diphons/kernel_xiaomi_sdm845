@@ -2694,6 +2694,7 @@ static int dsi_panel_parse_power_cfg(struct dsi_panel *panel)
 {
 	int rc = 0;
 	char *supply_name;
+	struct dsi_parser_utils *utils = &panel->utils;
 
 	panel->lp11_init = utils->read_bool(utils->data,
 				"qcom,mdss-dsi-lp11-init");

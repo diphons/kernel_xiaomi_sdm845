@@ -52,5 +52,7 @@ struct mi_drm_notifier {
 int mi_drm_register_client(struct notifier_block *nb);
 int mi_drm_unregister_client(struct notifier_block *nb);
 int mi_drm_notifier_call_chain(unsigned long val, void *v);
+extern void report_esd_panel_dead(void);
+extern void set_skip_panel_dead(bool on);
 
 #endif /*_DRM_NOTIFIER_MI_H*/

@@ -214,6 +214,7 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 {
 	struct dsi_display *dsi_display = display;
 	struct dsi_panel *panel;
+	struct drm_device *drm_dev;
 	u32 bl_scale, bl_scale_sv;
 	u64 bl_temp;
 	int rc = 0;
@@ -222,11 +223,12 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 		return -EINVAL;
 
 	panel = dsi_display->panel;
+	drm_dev = dsi_display->drm_dev;
 
-	mutex_lock(&panel->panel_lock);
 	if (!dsi_panel_initialized(panel)) {
-		rc = -EINVAL;
-		goto error;
+		pr_info("[%s] set backlight before panel initialized, caching value: %d\n",
+		dsi_display->name, bl_lvl);
+		return -EINVAL;
 	}
 
 	panel->bl_config.bl_level = bl_lvl;
@@ -236,7 +238,7 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 	bl_temp = bl_lvl * bl_scale / min(max(0, backlight_scale), 2047);
 
 	bl_scale_sv = panel->bl_config.bl_scale_sv;
-	bl_temp = (u32)bl_temp * bl_scale_sv / MAX_SV_BL_SCALE_LEVEL;
+	//bl_temp = (u32)bl_temp * bl_scale_sv / MAX_SV_BL_SCALE_LEVEL;
 
 	DSI_DEBUG("bl_scale = %u, bl_scale_sv = %u, bl_lvl = %u\n",
 		bl_scale, bl_scale_sv, (u32)bl_temp);
@@ -247,22 +249,22 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 		       dsi_display->name, rc);
 		goto error;
 	}
-/*
-	if (drm_dev && drm_dev->doze_state == DRM_BLANK_LP1) {
+
+	if (drm_dev && drm_dev->doze_state == MI_DRM_BLANK_LP1) {
 		rc = dsi_panel_set_doze_backlight(display, (u32)bl_temp);
 		if (rc)
 			DSI_ERR("unable to set doze backlight\n");
 		rc = dsi_panel_enable_doze_backlight(panel, (u32)bl_temp);
 		if (rc)
 			DSI_ERR("unable to enable doze backlight\n");
-	} else if (drm_dev && drm_dev->doze_state == DRM_BLANK_LP2) {
+	} else if (drm_dev && drm_dev->doze_state == MI_DRM_BLANK_LP2) {
 		DSI_ERR("unable to set doze backlight in LP2 state:%u\n", (u32)bl_temp);
 	} else {
-		drm_dev->doze_brightness = DOZE_BRIGHTNESS_INVALID;*/
+		drm_dev->doze_brightness = DOZE_BRIGHTNESS_INVALID;
 		rc = dsi_panel_set_backlight(panel, (u32)bl_temp);
 		if (rc)
 			DSI_ERR("unable to set backlight\n");
-//	}
+	}
 
 	rc = dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 			DSI_CORE_CLK, DSI_CLK_OFF);
