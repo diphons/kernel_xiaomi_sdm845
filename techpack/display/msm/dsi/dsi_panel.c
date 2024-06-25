@@ -46,6 +46,8 @@ EXPORT_SYMBOL_GPL(dsi_freq_head);
 static int oprofile_last = -1; // get last profile by oprofile
 #endif
 
+static struct dsi_panel *g_panel;
+
 enum dsi_dsc_ratio_type {
 	DSC_8BPC_8BPP,
 	DSC_10BPC_8BPP,
@@ -463,8 +465,22 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 {
 	int rc = 0;
 
-	if (!panel->tddi_doubleclick_flag)
-	rc = dsi_pwr_enable_regulator(&panel->power_info, true);
+	if (g_panel->panel_reset_skip) {
+		pr_info("%s: panel reset skip\n", __func__);
+
+		if (panel->off_keep_reset) {
+			rc = dsi_panel_reset(panel);
+			if (rc) {
+				pr_err("[%s] failed to reset panel, rc=%d\n", panel->name, rc);
+			}
+		}
+		if (!panel->tddi_doubleclick_flag)
+			rc = dsi_pwr_enable_regulator(&panel->power_info, true);
+		else
+			return rc;
+	} else {
+		rc = dsi_pwr_enable_regulator(&panel->power_info, true);
+	}
 	if (rc) {
 		DSI_ERR("[%s] failed to enable vregs, rc=%d\n",
 				panel->name, rc);
@@ -476,6 +492,10 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 		DSI_ERR("[%s] failed to set pinctrl, rc=%d\n", panel->name, rc);
 		goto error_disable_vregs;
 	}
+
+	/* If LP11_INIT is set, skip panel reset here*/
+	if (panel->lp11_init)
+		goto exit;
 
 	rc = dsi_panel_reset(panel);
 	if (rc) {
@@ -508,10 +528,25 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 	if (gpio_is_valid(panel->reset_config.disp_en_gpio))
 		gpio_set_value(panel->reset_config.disp_en_gpio, 0);
 
-	if (!panel->tddi_doubleclick_flag)
-	if (gpio_is_valid(panel->reset_config.reset_gpio) &&
-					!panel->reset_gpio_always_on)
-		gpio_set_value(panel->reset_config.reset_gpio, 0);
+	if (g_panel->panel_reset_skip) {
+		if (!panel->tddi_doubleclick_flag) {
+			if (gpio_is_valid(panel->reset_config.reset_gpio) &&
+							!panel->reset_gpio_always_on)
+				gpio_set_value(panel->reset_config.reset_gpio, 0);
+		} else {
+				pr_info("%s: panel reset skip\n", __func__);
+				return rc;
+		}
+	}
+
+	if (!panel->off_keep_reset) {
+		if (gpio_is_valid(panel->reset_config.reset_gpio))
+			gpio_set_value(panel->reset_config.reset_gpio, 0);
+	} else {
+		if (gpio_is_valid(panel->reset_config.reset_gpio) &&
+						!panel->reset_gpio_always_on)
+			gpio_set_value(panel->reset_config.reset_gpio, 0);
+	}
 
 	if (gpio_is_valid(panel->reset_config.lcd_mode_sel_gpio))
 		gpio_set_value(panel->reset_config.lcd_mode_sel_gpio, 0);
@@ -529,7 +564,6 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 		       rc);
 	}
 
-	if(!panel->tddi_doubleclick_flag)
 	rc = dsi_pwr_enable_regulator(&panel->power_info, false);
 	if (rc)
 		DSI_ERR("[%s] failed to enable vregs, rc=%d\n",
@@ -3380,6 +3414,18 @@ end:
 	utils->node = panel->panel_of_node;
 }
 
+static int dsi_panel_parse_keep_reset_config(struct dsi_panel *panel,
+				     struct device_node *of_node)
+{
+	if (panel == NULL)
+		return -EINVAL;
+
+	panel->off_keep_reset = of_property_read_bool(of_node,
+		"qcom,mdss-panel-off-keep-reset");
+
+	return 0;
+}
+
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node,
 				struct device_node *parser_node,
@@ -3487,6 +3533,10 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	if (rc)
 		DSI_DEBUG("failed to parse esd config, rc=%d\n", rc);
 
+	rc = dsi_panel_parse_keep_reset_config(panel, of_node);
+	if (rc)
+		DSI_DEBUG("failed to parse keep reset config, rc=%d\n", rc);
+
 	panel->tddi_doubleclick_flag = false;
 	panel->power_mode = SDE_MODE_DPMS_OFF;
 	drm_panel_init(&panel->drm_panel);
@@ -3499,6 +3549,7 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 
 	mutex_init(&panel->panel_lock);
 
+	g_panel = panel;
 	return panel;
 error:
 	kfree(panel);
@@ -4021,10 +4072,6 @@ int dsi_panel_pre_prepare(struct dsi_panel *panel)
 
 	mutex_lock(&panel->panel_lock);
 
-	/* If LP11_INIT is set, panel will be powered up during prepare() */
-	if (panel->lp11_init)
-		goto error;
-
 	rc = dsi_panel_power_on(panel);
 	if (rc) {
 		DSI_ERR("[%s] panel power on failed, rc=%d\n", panel->name, rc);
@@ -4181,10 +4228,9 @@ int dsi_panel_prepare(struct dsi_panel *panel)
 	mutex_lock(&panel->panel_lock);
 
 	if (panel->lp11_init) {
-		rc = dsi_panel_power_on(panel);
+		rc = dsi_panel_reset(panel);
 		if (rc) {
-			DSI_ERR("[%s] panel power on failed, rc=%d\n",
-			       panel->name, rc);
+			pr_err("[%s] failed to reset panel, rc=%d\n", panel->name, rc);
 			goto error;
 		}
 	}
@@ -4628,6 +4674,15 @@ int dsi_panel_unprepare(struct dsi_panel *panel)
 		goto error;
 	}
 
+	if (!panel->lp11_init) {
+		rc = dsi_panel_power_off(panel);
+		if (rc) {
+			pr_err("[%s] panel power_Off failed, rc=%d\n",
+			       panel->name, rc);
+			goto error;
+		}
+	}
+
 error:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
@@ -4644,11 +4699,13 @@ int dsi_panel_post_unprepare(struct dsi_panel *panel)
 
 	mutex_lock(&panel->panel_lock);
 
-	rc = dsi_panel_power_off(panel);
-	if (rc) {
-		DSI_ERR("[%s] panel power_Off failed, rc=%d\n",
-		       panel->name, rc);
-		goto error;
+	if (panel->lp11_init) {
+		rc = dsi_panel_power_off(panel);
+		if (rc) {
+			DSI_ERR("[%s] panel power_Off failed, rc=%d\n",
+			       panel->name, rc);
+			goto error;
+		}
 	}
 error:
 	mutex_unlock(&panel->panel_lock);
@@ -4660,5 +4717,8 @@ void dsi_panel_doubleclick_enable(bool on) {
 	struct dsi_display *primary_display = get_main_display();
 	if (primary_display && primary_display->panel)
 		primary_display->panel->tddi_doubleclick_flag = on;
+
+	if (g_panel)
+		g_panel->panel_reset_skip = on;
 }
 EXPORT_SYMBOL(dsi_panel_doubleclick_enable);
