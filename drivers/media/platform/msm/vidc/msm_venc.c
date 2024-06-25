@@ -358,7 +358,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR,
 		.maximum = V4L2_MPEG_VIDEO_BITRATE_MODE_CQ,
-		.default_value = V4L2_MPEG_VIDEO_BITRATE_MODE_RC_OFF,
+		.default_value = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR,
 		.step = 0,
 		.menu_skip_mask = ~(
 		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) |
@@ -433,8 +433,15 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE,
 		.maximum = V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH,
-		.default_value = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE,
-		.menu_skip_mask = 0,
+		.default_value = V4L2_MPEG_VIDEO_H264_PROFILE_HIGH,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE) |
+		(1 << V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE) |
+		(1 << V4L2_MPEG_VIDEO_H264_PROFILE_MAIN) |
+		(1 << V4L2_MPEG_VIDEO_H264_PROFILE_HIGH) |
+		(1 << V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH)
+		),
+		.qmenu = NULL,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_H264_LEVEL,
