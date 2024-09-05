@@ -11,7 +11,9 @@
  *
  */
 
+#ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
+#endif
 #include <linux/dma-mapping.h>
 #include <linux/init.h>
 #include <linux/ioctl.h>
@@ -899,7 +901,9 @@ static int __init msm_vidc_init(void)
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to register platform driver\n");
+#ifdef CONFIG_DEBUG_FS
 		debugfs_remove_recursive(vidc_driver->debugfs_root);
+#endif
 		kfree(vidc_driver);
 		vidc_driver = NULL;
 	}
@@ -910,7 +914,9 @@ static int __init msm_vidc_init(void)
 static void __exit msm_vidc_exit(void)
 {
 	platform_driver_unregister(&msm_vidc_driver);
+#ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(vidc_driver->debugfs_root);
+#endif
 	mutex_destroy(&vidc_driver->lock);
 	kfree(vidc_driver);
 	vidc_driver = NULL;
