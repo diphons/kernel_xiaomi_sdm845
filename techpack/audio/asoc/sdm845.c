@@ -67,7 +67,6 @@
 #define TDM_CHANNEL_MAX 8
 
 #define MSM_HIFI_ON 1
-#define MSM_LL_QOS_VALUE 300 /* time in us to ensure LPM doesn't go in C3/C4 */
 
 #define TDM_MAX_SLOTS		8
 #define TDM_SLOT_WIDTH_BITS	32
@@ -2913,7 +2912,6 @@ static int msm_qos_ctl_put(struct snd_kcontrol *kcontrol,
 	const char *be_name = MSM_DAILINK_NAME(LowLatency);
 	struct snd_soc_pcm_runtime *rtd;
 	struct snd_pcm_substream *substream;
-	s32 usecs;
 
 	rtd = snd_soc_get_pcm_runtime(card, be_name);
 	if (!rtd) {
@@ -2929,21 +2927,6 @@ static int msm_qos_ctl_put(struct snd_kcontrol *kcontrol,
 	}
 
 	qos_vote_status = ucontrol->value.enumerated.item[0];
-	if (qos_vote_status) {
-		if (pm_qos_request_active(&substream->latency_pm_qos_req))
-			pm_qos_remove_request(&substream->latency_pm_qos_req);
-		if (!substream->runtime) {
-			pr_err("%s: runtime is null\n", __func__);
-			return -EINVAL;
-		}
-		usecs = MSM_LL_QOS_VALUE;
-		if (usecs >= 0)
-			pm_qos_add_request(&substream->latency_pm_qos_req,
-					PM_QOS_CPU_DMA_LATENCY, usecs);
-	} else {
-		if (pm_qos_request_active(&substream->latency_pm_qos_req))
-			pm_qos_remove_request(&substream->latency_pm_qos_req);
-	}
 
 	return 0;
 }
@@ -4975,25 +4958,6 @@ static struct snd_soc_ops sdm845_tdm_be_ops = {
 	.shutdown = sdm845_tdm_snd_shutdown
 };
 
-static int msm_fe_qos_prepare(struct snd_pcm_substream *substream)
-{
-	if (pm_qos_request_active(&substream->latency_pm_qos_req))
-		pm_qos_remove_request(&substream->latency_pm_qos_req);
-
-	atomic_set(&substream->latency_pm_qos_req.cpus_affine, BIT(1) | BIT(2));
-
-	substream->latency_pm_qos_req.type = PM_QOS_REQ_AFFINE_CORES;
-
-	pm_qos_add_request(&substream->latency_pm_qos_req,
-			  PM_QOS_CPU_DMA_LATENCY,
-			  MSM_LL_QOS_VALUE);
-	return 0;
-}
-
-static struct snd_soc_ops msm_fe_qos_ops = {
-	.prepare = msm_fe_qos_prepare,
-};
-
 static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
@@ -5348,7 +5312,6 @@ static struct snd_soc_dai_link msm_common_dai_links[] = {
 		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
 		.id = MSM_FRONTEND_DAI_MULTIMEDIA5,
-		.ops = &msm_fe_qos_ops,
 	},
 	{
 		.name = "Listen 1 Audio Service",
@@ -5416,7 +5379,6 @@ static struct snd_soc_dai_link msm_common_dai_links[] = {
 		.ignore_pmdown_time = 1,
 		 /* this dainlink has playback support */
 		.id = MSM_FRONTEND_DAI_MULTIMEDIA8,
-		.ops = &msm_fe_qos_ops,
 	},
 	/* HDMI Hostless */
 	{
