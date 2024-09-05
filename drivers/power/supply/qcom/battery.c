@@ -1227,7 +1227,12 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	if (!chip->main_psy)
 		return 0;
 
-	pval.intval = fv_uv;
+#ifdef CONFIG_D8G_SERVICE
+	if (dynamic_charger && dynamic_chg_max > 0)
+		pval.intval = dynamic_chg_max;
+	else
+#endif
+		pval.intval = fv_uv;
 
 	rc = power_supply_set_property(chip->main_psy,
 			POWER_SUPPLY_PROP_VOLTAGE_MAX, &pval);
