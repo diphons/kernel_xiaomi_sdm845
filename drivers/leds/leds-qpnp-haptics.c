@@ -28,6 +28,9 @@
 #include <linux/slab.h>
 #include <linux/qpnp/qpnp-misc.h>
 #include <linux/qpnp/qpnp-revid.h>
+#ifdef CONFIG_D8G_SERVICE
+#include <misc/d8g_helper.h>
+#endif
 
 /* Register definitions */
 #define HAP_STATUS_1_REG(chip)		(chip->base + 0x0A)
@@ -1066,6 +1069,37 @@ static int qpnp_haptics_play_mode_config(struct hap_chip *chip)
 	return rc;
 }
 
+#ifndef CONFIG_D8G_SERVICE
+static int haptic_gain = 80;
+module_param(haptic_gain, int, 0644);
+int haptic_gain_show = 0;
+module_param(haptic_gain_show, int, 0444);
+#endif
+static int haptic_set_level(int gain)
+{
+    int val, max_val = HAP_VMAX_MAX_MV;
+
+	// Set gain to use max_val
+	if (gain < max_val || gain > max_val)
+		gain = max_val;
+
+	// haptic_gain in percent
+	if (haptic_gain > 100 )
+		haptic_gain = 100;
+	if (haptic_gain < 20 )
+		haptic_gain = 20;
+
+	val = haptic_gain * gain / 100;
+
+    if (val > max_val)
+        val = max_val;
+	// don't change value on min level
+    if (val < HAP_VMAX_MIN_MV)
+        val = HAP_VMAX_MIN_MV;
+
+    return val;
+}
+
 /* configuration api for max voltage */
 static int qpnp_haptics_vmax_config(struct hap_chip *chip, int vmax_mv,
 				bool overdrive)
@@ -1085,6 +1119,9 @@ static int qpnp_haptics_vmax_config(struct hap_chip *chip, int vmax_mv,
 	else if (vmax_mv > HAP_VMAX_MAX_MV)
 		vmax_mv = HAP_VMAX_MAX_MV;
 
+	if (haptic_set_level(vmax_mv))
+		vmax_mv = haptic_set_level(vmax_mv);
+	haptic_gain_show = vmax_mv;
 	val = DIV_ROUND_CLOSEST(vmax_mv, HAP_VMAX_MIN_MV);
 	val <<= HAP_VMAX_SHIFT;
 	if (overdrive)

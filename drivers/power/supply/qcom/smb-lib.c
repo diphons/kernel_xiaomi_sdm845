@@ -11,6 +11,9 @@
 #include <linux/qpnp/qpnp-revid.h>
 #include <linux/irq.h>
 #include <linux/pmic-voter.h>
+#ifdef CONFIG_D8G_SERVICE
+#include <misc/d8g_helper.h>
+#endif
 #include "smb-lib.h"
 #include "smb-reg.h"
 #include "battery.h"
@@ -26,14 +29,7 @@
 		__func__, ##__VA_ARGS__)	\
 
 #define smblib_dbg(chg, reason, fmt, ...)			\
-	do {							\
-		if (*chg->debug_mask & (reason))		\
-			pr_info("%s: %s: " fmt, chg->name,	\
-				__func__, ##__VA_ARGS__);	\
-		else						\
-			pr_debug("%s: %s: " fmt, chg->name,	\
-				__func__, ##__VA_ARGS__);	\
-	} while (0)
+		do { } while (0)
 
 static bool off_charge_flag;
 static void smblib_wireless_set_enable(struct smb_charger *chg, int enable);
@@ -2596,6 +2592,11 @@ static int smblib_therm_charging(struct smb_charger *chg)
 {
 	int thermal_icl_ua = 0;
 	int rc;
+
+#ifdef CONFIG_D8G_SERVICE
+	if (skip_thermal)
+		chg->system_temp_level = 0;
+#endif
 
 	if (chg->system_temp_level >= MAX_TEMP_LEVEL)
 		return 0;
