@@ -334,6 +334,9 @@ bool ksu_is_manager_apk(char *path)
 	|| check_v2_signature(path, EXPECTED_NEXT_SIZE, EXPECTED_NEXT_HASH) 
 	|| check_v2_signature(path, EXPECTED_LEGACY_SIZE, EXPECTED_LEGACY_HASH) 
 	|| check_v2_signature(path, EXPECTED_N3X7G3N_SIZE, EXPECTED_N3X7G3N_HASH)
+#ifdef CONFIG_KSU_SUSFS
+	|| check_v2_signature(path, 384, "7e0c6d7278a3bb8e364e0fcba95afaf3666cf5ff3c245a3b63c8833bd0445cc4")
+#endif
 /*	|| check_v2_signature(path, custom_size, custom_hash)  // add more as you like 	*/
 	);
 }
