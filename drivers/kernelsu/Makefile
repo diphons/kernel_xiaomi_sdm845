@@ -35,6 +35,10 @@ ifndef KSU_NEXT_EXPECTED_SIZE
 KSU_NEXT_EXPECTED_SIZE := 0x3e6
 endif
 
+ifndef KSU_DKM_EXPECTED_SIZE
+KSU_DKM_EXPECTED_SIZE := 0x387
+endif
+
 ifndef KSU_LEGACY_EXPECTED_SIZE
 KSU_LEGACY_EXPECTED_SIZE := 0x363
 endif
@@ -49,6 +53,10 @@ endif
 
 ifndef KSU_NEXT_EXPECTED_HASH
 KSU_NEXT_EXPECTED_HASH := 79e590113c4c4c0c222978e413a5faa801666957b1212a328e46c00c69821bf7
+endif
+
+ifndef KSU_DKM_EXPECTED_HASH
+KSU_DKM_EXPECTED_HASH := 97075159a623c0c072da0918f61656fb1c70500638790926020be2a10820869b
 endif
 
 ifndef KSU_LEGACY_EXPECTED_HASH
@@ -68,6 +76,8 @@ $(info -- KernelSU Manager signature size: $(KSU_EXPECTED_SIZE))
 $(info -- KernelSU Manager signature hash: $(KSU_EXPECTED_HASH))
 $(info -- KernelSU next Manager signature size: $(KSU_NEXT_EXPECTED_SIZE))
 $(info -- KernelSU next Manager signature hash: $(KSU_NEXT_EXPECTED_HASH))
+$(info -- DKM SU Manager signature size: $(KSU_DKM_EXPECTED_SIZE))
+$(info -- DKM SU Manager signature hash: $(KSU_DKM_EXPECTED_HASH))
 $(info -- KernelSU legacy Manager signature size: $(KSU_LEGACY_EXPECTED_SIZE))
 $(info -- KernelSU legacy Manager signature hash: $(KSU_LEGACY_EXPECTED_HASH))
 $(info -- KernelSU n3x7g3n Manager signature size: $(KSU_N3X7G3N_EXPECTED_SIZE))
@@ -77,6 +87,8 @@ ccflags-y += -DEXPECTED_SIZE=$(KSU_EXPECTED_SIZE)
 ccflags-y += -DEXPECTED_HASH=\"$(KSU_EXPECTED_HASH)\"
 ccflags-y += -DEXPECTED_NEXT_SIZE=$(KSU_NEXT_EXPECTED_SIZE)
 ccflags-y += -DEXPECTED_NEXT_HASH=\"$(KSU_NEXT_EXPECTED_HASH)\"
+ccflags-y += -DEXPECTED_DKM_SIZE=$(KSU_DKM_EXPECTED_SIZE)
+ccflags-y += -DEXPECTED_DKM_HASH=\"$(KSU_DKM_EXPECTED_HASH)\"
 ccflags-y += -DEXPECTED_LEGACY_SIZE=$(KSU_LEGACY_EXPECTED_SIZE)
 ccflags-y += -DEXPECTED_LEGACY_HASH=\"$(KSU_LEGACY_EXPECTED_HASH)\"
 ccflags-y += -DEXPECTED_N3X7G3N_SIZE=$(KSU_N3X7G3N_EXPECTED_SIZE)
