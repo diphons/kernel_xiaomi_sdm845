@@ -2152,6 +2152,38 @@ static void spcom_unregister_chrdev(void)
 
 }
 
+#ifdef CONFIG_ARCH_SDM845
+static int spcom_parse_dt(struct device_node *np)
+{
+	int ret;
+	const char *propname = "qcom,spcom-ch-names";
+	int num_ch = of_property_count_strings(np, propname);
+	int i;
+	const char *name;
+
+	pr_debug("num of predefined channels [%d].\n", num_ch);
+
+	if (num_ch > ARRAY_SIZE(spcom_dev->predefined_ch_name)) {
+		pr_err("too many predefined channels [%d].\n", num_ch);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < num_ch; i++) {
+		ret = of_property_read_string_index(np, propname, i, &name);
+		if (ret) {
+			pr_err("failed to read DT channel [%d] name .\n", i);
+			return -EFAULT;
+		}
+		strlcpy(spcom_dev->predefined_ch_name[i],
+			name,
+			sizeof(spcom_dev->predefined_ch_name[i]));
+
+		pr_debug("found ch [%s].\n", name);
+	}
+
+	return num_ch;
+}
+#else
 static int spcom_parse_dt(struct device_node *np)
 {
 	int ret;
@@ -2240,6 +2272,7 @@ static int spcom_parse_dt(struct device_node *np)
 
 	return num_ch;
 }
+#endif
 
 /*
  * the function is running on system workqueue context,
