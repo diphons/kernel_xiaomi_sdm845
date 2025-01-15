@@ -1180,6 +1180,7 @@ config REGULATOR_PM8008
 
 config I2C_RETRY
 	bool "Stub Regulator"
+	default y
 	help
 	  This help control I2C retry functions
 
